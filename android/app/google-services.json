@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "247615499846",
+    "project_id": "boardlist-4dda7",
+    "storage_bucket": "boardlist-4dda7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:247615499846:android:03f36c95bba8ce19656447",
+        "android_client_info": {
+          "package_name": "com.example.board_list"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvobUDON9gjmISLdRL651_Y5DmxjKMF2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
