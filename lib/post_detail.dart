@@ -11,15 +11,40 @@ class PostDetail extends StatelessWidget {
   final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
   String ? commentId;
   String ? newContent;
-
+  String getCurrentUserID() {
+    // Firebase Authentication을 통해 현재 사용자의 UID를 가져옵니다.
+    final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
+    return currentUserID;
+  }
 
   PostDetail(this.post);
 
   void someFunction() async {
-    String postId = '삭제할 게시물의 ID';
-    String postAuthorID = '게시물 작성자의 ID';
+    String currentUserID = getCurrentUserID();
+    print(currentUserID);
+
+    String postId = getCurrentUserID();
+    String postAuthorID = getCurrentUserID();
 
     await deletePost(postId, postAuthorID);
+  }
+
+  Future<void> fetchUserData() async {
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(currentUserID).get();
+      // 여기서 userSnapshot을 사용하여 해당 사용자의 데이터에 액세스할 수 있습니다.
+      if (userSnapshot.exists) {
+        // 사용자 데이터가 존재하는 경우
+        var userData = userSnapshot.data();
+        print('사용자 데이터: $userData');
+      } else {
+        // 사용자 데이터가 존재하지 않는 경우
+        print('해당 사용자 데이터가 없습니다.');
+      }
+    } catch (e) {
+      print('사용자 데이터를 가져오는 중 오류 발생: $e');
+      // 에러 처리
+    }
   }
 
   // 게시물 삭제 기능 구현
@@ -60,7 +85,6 @@ class PostDetail extends StatelessWidget {
       // 사용자에게 권한이 없음을 알리는 로직
     }
   }
-
 
   Future<String> _uploadImage() async {
     final picker = ImagePicker();
@@ -116,7 +140,6 @@ class PostDetail extends StatelessWidget {
       // 사용자에게 권한이 없음을 알리는 로직
     }
   }
-
 
   Future<void> updateComment(String postId, String commentId,
       String newComment) async {

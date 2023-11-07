@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../board.dart';
 import 'auth.dart';
 
@@ -10,6 +11,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
@@ -41,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () {
                   _signInWithEmailAndPassword(context);
                 },
-                child: Text('로그인') ,
+                child: Text('로그인'),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -50,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     MaterialPageRoute(builder: (context) => SignUpScreen()),
                   );
                 },
-                child: Text('회원이 아니신가요') ,
+                child: Text('회원이 아니신가요'),
               ),
             ],
           ),
@@ -68,10 +70,16 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+      // Save the UID securely
+      await _storage.write(key: 'uid', value: userCredential.user!.uid);
+      // Print the UID to the console
+      String? storedUid = await _storage.read(key: 'uid');
+      print('Stored UID: $storedUid');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("로그인 성공!"),
-          duration: Duration(seconds: 2), // Optional duration to show the SnackBar
+          duration: Duration(seconds: 2),
         ),
       );
       // Example: Navigate to a new screen after successful login
@@ -83,12 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("로그인 실패: $e"),
-          duration: Duration(seconds: 5), // Optional duration to show the SnackBar
+          duration: Duration(seconds: 5),
         ),
       );
     }
   }
-
 
   @override
   void dispose() {

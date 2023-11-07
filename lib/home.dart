@@ -1,11 +1,9 @@
 import 'dart:io';
 
-import 'package:board_list/post_detail.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_options.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 class NewPostScreen extends StatefulWidget {
@@ -14,9 +12,22 @@ class NewPostScreen extends StatefulWidget {
 }
 
 class _NewPostScreenState extends State<NewPostScreen> {
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
   String title = '';
   String content = '';
   XFile? image; // Variable to hold the selected image file
+  String? user;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    userId();
+  }
+
+  Future<void> userId() async {
+    user = await _storage.read(key: 'uid');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,26 +73,24 @@ class _NewPostScreenState extends State<NewPostScreen> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                // Upload image to Firebase Storage if an image is selected
                 if (image != null) {
                   Reference ref = FirebaseStorage.instance.ref().child('images/${DateTime.now().toString()}');
                   await ref.putFile(File(image!.path));
                   String imageUrl = await ref.getDownloadURL();
-
-                  // Add post details to Firestore with the image URL
                   await FirebaseFirestore.instance.collection('posts').add({
+                    'user':user ,
                     'title': title,
                     'content': content,
                     'imageUrl': imageUrl,
                     'timestamp': FieldValue.serverTimestamp(),
                   });
-
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('게시물이 추가되었습니다')),
                   );
                 } else {
                   // Add post details to Firestore without the image URL
                   await FirebaseFirestore.instance.collection('posts').add({
+                    'user':user ,
                     'title': title,
                     'content': content,
                     'timestamp': FieldValue.serverTimestamp(),
