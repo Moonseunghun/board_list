@@ -8,7 +8,6 @@ class PostDetail extends StatelessWidget {
   final DocumentSnapshot post;
   final TextEditingController _commentController = TextEditingController();
 
-
   PostDetail(this.post);
 
   Future<void> _deletePost(String postId) async {
@@ -26,21 +25,27 @@ class PostDetail extends StatelessWidget {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      Reference storageReference =
-      FirebaseStorage.instance.ref().child('images/${DateTime.now()}.png');
+      Reference storageReference = FirebaseStorage.instance.ref().child('images/${DateTime.now()}.jpeg');
       UploadTask uploadTask = storageReference.putFile(File(pickedFile.path));
-      await uploadTask;
-      String downloadURL = await storageReference.getDownloadURL();
-      return downloadURL;
+
+      try {
+        await uploadTask;
+        String downloadURL = await storageReference.getDownloadURL();
+        return downloadURL;
+      } catch (e) {
+        print("Error during image upload: $e");
+        throw Exception('이미지를 업로드하는 데 문제가 발생했습니다.');
+      }
     }
 
-    throw Exception('이미지를 업로드하는 데 문제가 발생했습니다.');
+    throw Exception('이미지를 선택하지 않았습니다.');
   }
 
-  Future<void> _addComment(String postId, String comment) async {
+  Future<void> _addComment(String postId, String comment, String imageURL) async {
     await FirebaseFirestore.instance.collection('posts').doc(postId).collection('comments').add({
       'text': comment,
-      'timestamp': FieldValue.serverTimestamp(), // 댓글 시간을 기록합니다.
+      'imageURL': imageURL, // 이미지 URL을 Firestore에 저장
+      'timestamp': FieldValue.serverTimestamp(),
     });
   }
 
@@ -53,6 +58,16 @@ class PostDetail extends StatelessWidget {
         .delete();
   }
 
+  Future<void> _updateComment(String commentId , String newComment) async {
+    await FirebaseFirestore.instance
+        .collection('posts')
+        .doc(post.id)
+        .collection('comments')
+        .doc(commentId)
+        .update({
+      'text': newComment, // 수정된 댓글 내용으로 업데이트
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +75,7 @@ class PostDetail extends StatelessWidget {
       appBar: AppBar(
         title: Text(post['title']),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,7 +84,72 @@ class PostDetail extends StatelessWidget {
               post['content'],
               style: TextStyle(fontSize: 20.0),
             ),
-            // 위젯 내부에 StreamBuilder 추가
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                String imageUrl = await _uploadImage();
+                if (imageUrl != null) {
+                  await _addComment(post.id, '', imageUrl);
+                }
+              },
+              child: Text('이미지 업로드'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // Implement video upload functionality
+              },
+              child: Text('동영상 업로드'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: Text('게시물 수정'),
+                      content: TextField(
+                        controller: _commentController,
+                        decoration: InputDecoration(hintText: '새로운 내용을 입력하세요'),
+                      ),
+                      actions: <Widget>[
+                        TextButton(
+                          child: Text('취소'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        TextButton(
+                          child: Text('수정'),
+                          onPressed: () async {
+                            if (_commentController.text.isNotEmpty) {
+                              _updatePost(post.id, _commentController.text);
+                              Navigator.of(context).pop();
+                            }
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+              child: Text('게시물 수정'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                _deletePost(post.id);
+                Navigator.of(context).pop(); // Close the screen after deletion
+              },
+              child: Text('게시물 삭제'),
+            ),
+            SizedBox(height: 20),
+            Text(
+              '댓글',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('posts').doc(post.id).collection('comments').snapshots(),
               builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -82,16 +162,62 @@ class PostDetail extends StatelessWidget {
                     return Column(
                       children: snapshot.data!.docs.map((DocumentSnapshot document) {
                         Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-                        String commentId = document.id; // 해당 댓글의 ID 가져오기
+                        String commentId = document.id;
 
-                        return ListTile(
-                          title: Text(data['text']),
-                          subtitle: Text(data['timestamp'].toString()), // 시간 표시 방법은 적절히 포맷팅이 필요합니다.
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete),
-                            onPressed: () {
-                              _deleteComment(commentId); // 해당 댓글 ID를 전달하여 삭제 함수 호출
-                            },
+                        return Card(
+                          margin: EdgeInsets.symmetric(vertical: 5),
+                          child: ListTile(
+                            title: Text(data['text']),
+                            subtitle: data['imageURL'] != null ? Image.network(data['imageURL']) : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.edit),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        String updatedComment = data['text'];
+                                        return AlertDialog(
+                                          title: Text('댓글 수정'),
+                                          content: TextField(
+                                            controller: TextEditingController(text: updatedComment),
+                                            onChanged: (value) {
+                                              updatedComment = value;
+                                            },
+                                            decoration: InputDecoration(hintText: '수정된 댓글을 입력하세요'),
+                                          ),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text('취소'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                            ),
+                                            TextButton(
+                                              child: Text('수정'),
+                                              onPressed: () async {
+                                                if (updatedComment.isNotEmpty) {
+                                                  _updateComment(commentId, updatedComment);
+                                                  Navigator.of(context).pop();
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete),
+                                  onPressed: () {
+                                    _deleteComment(commentId);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }).toList(),
@@ -102,7 +228,7 @@ class PostDetail extends StatelessWidget {
                 }
               },
             ),
-
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -110,66 +236,31 @@ class PostDetail extends StatelessWidget {
                   builder: (BuildContext context) {
                     return AlertDialog(
                       title: Text('댓글 추가'),
-                      content: TextField(
-                        controller: _commentController,
-                        decoration: InputDecoration(hintText: '댓글을 입력하세요'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: _commentController,
+                            decoration: InputDecoration(hintText: '댓글을 입력하세요'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              String imageUrl = await _uploadImage();
+                              if (_commentController.text.isNotEmpty) {
+                                await _addComment(post.id, _commentController.text, imageUrl);
+                                _commentController.clear();
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            child: Text('이미지 업로드 후 댓글 추가'),
+                          ),
+                        ],
                       ),
-                      actions: <Widget>[
-                        TextButton(
-                          child: Text('취소'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                        TextButton(
-                          child: Text('추가'),
-                          onPressed: () async {
-                            if (_commentController.text.isNotEmpty) {
-                              await _addComment(post.id, _commentController.text);
-                              _commentController.clear();
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                      ],
                     );
                   },
                 );
               },
               child: Text('댓글 추가'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                String imageUrl = await _uploadImage();
-                if (imageUrl != null) {
-                  // 이미지가 업로드되면 Firebase Firestore에 저장하는 로직
-                  await FirebaseFirestore.instance
-                      .collection('posts')
-                      .doc(post.id)
-                      .update({'image': imageUrl});
-                }
-              },
-              child: Text('이미지 업로드'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // 동영상 업로드 기능 구현
-                // 이 부분은 동영상 업로드 기능이 추가되면 구현되어야 합니다.
-              },
-              child: Text('동영상 업로드'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _updatePost(post.id, '새로운 내용');
-              },
-              child: Text('게시물 수정'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _deletePost(post.id);
-                Navigator.of(context).pop(); // 삭제 후 화면을 닫습니다.
-              },
-              child: Text('게시물 삭제'),
             ),
           ],
         ),
