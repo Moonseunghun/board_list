@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,25 +8,67 @@ import 'package:firebase_storage/firebase_storage.dart';
 class PostDetail extends StatelessWidget {
   final DocumentSnapshot post;
   final TextEditingController _commentController = TextEditingController();
+  final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
+  String ? commentId;
+  String ? newContent;
+
 
   PostDetail(this.post);
 
-  Future<void> _deletePost(String postId) async {
-    await FirebaseFirestore.instance.collection('posts').doc(postId).delete();
+  void someFunction() async {
+    String postId = '삭제할 게시물의 ID';
+    String postAuthorID = '게시물 작성자의 ID';
+
+    await deletePost(postId, postAuthorID);
   }
 
-  Future<void> _updatePost(String postId, String newContent) async {
-    await FirebaseFirestore.instance.collection('posts').doc(postId).update({
-      'content': newContent,
-    });
+  // 게시물 삭제 기능 구현
+  Future<void> deletePost(String postId, String postAuthorID) async {
+    if (currentUserID == postAuthorID) {
+      try {
+        await FirebaseFirestore.instance.collection('posts')
+            .doc(postId)
+            .delete();
+      } catch (e) {
+        print('게시물을 삭제하는 중 오류 발생: $e');
+        // 에러 처리 로직
+      }
+    } else {
+      print('작성자만 게시물을 삭제할 수 있습니다.');
+      // 사용자에게 권한이 없음을 알리는 로직
+    }
   }
+
+  // 게시물 수정 기능 구현
+  Future<void> updatePost(String postId, String newContent) async {
+    // Firebase Authentication을 통해 현재 사용자의 ID를 가져옵니다.
+    final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
+    // 게시물 수정에 앞서 해당 사용자가 게시물의 작성자인지 확인
+    // (이 코드가 Firebase에서 가져온 사용자 ID와 게시물의 작성자 ID를 비교하는 것으로 바꿔야 합니다)
+    if (currentUserID == '작성자의ID') {
+      try {
+        await FirebaseFirestore.instance.collection('posts').doc(postId).update(
+            {
+              'content': newContent,
+            });
+      } catch (e) {
+        print('게시물을 수정하는 중 오류 발생: $e');
+        // 에러 처리 로직
+      }
+    } else {
+      print('작성자만 게시물을 수정할 수 있습니다.');
+      // 사용자에게 권한이 없음을 알리는 로직
+    }
+  }
+
 
   Future<String> _uploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      Reference storageReference = FirebaseStorage.instance.ref().child('images/${DateTime.now()}.jpeg');
+      Reference storageReference = FirebaseStorage.instance.ref().child(
+          'images/${DateTime.now()}.jpeg');
       UploadTask uploadTask = storageReference.putFile(File(pickedFile.path));
 
       try {
@@ -41,32 +84,65 @@ class PostDetail extends StatelessWidget {
     throw Exception('이미지를 선택하지 않았습니다.');
   }
 
-  Future<void> _addComment(String postId, String comment, String imageURL) async {
-    await FirebaseFirestore.instance.collection('posts').doc(postId).collection('comments').add({
+  Future<void> _addComment(String postId, String comment,
+      String imageURL) async {
+    await FirebaseFirestore.instance.collection('posts').doc(postId).collection(
+        'comments').add({
       'text': comment,
       'imageURL': imageURL, // 이미지 URL을 Firestore에 저장
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> _deleteComment(String commentId) async {
-    await FirebaseFirestore.instance
-        .collection('posts')
-        .doc(post.id)
-        .collection('comments')
-        .doc(commentId)
-        .delete();
+  Future<void> deleteComment(String postId, String commentId) async {
+    // Firebase Authentication을 통해 현재 사용자의 ID를 가져옵니다.
+    final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
+    // 댓글 삭제에 앞서 해당 사용자가 댓글의 작성자인지 확인
+    // (이 코드가 Firebase에서 가져온 사용자 ID와 댓글의 작성자 ID를 비교하는 것으로 바꿔야 합니다)
+    if (currentUserID == commentId) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(postId)
+            .collection('comments')
+            .doc(commentId)
+            .delete();
+      } catch (e) {
+        print('댓글을 삭제하는 중 오류 발생: $e');
+        // 에러 처리 로직
+      }
+    } else {
+      print('작성자만 댓글을 삭제할 수 있습니다.');
+      // 사용자에게 권한이 없음을 알리는 로직
+    }
   }
 
-  Future<void> _updateComment(String commentId , String newComment) async {
-    await FirebaseFirestore.instance
-        .collection('posts')
-        .doc(post.id)
-        .collection('comments')
-        .doc(commentId)
-        .update({
-      'text': newComment, // 수정된 댓글 내용으로 업데이트
-    });
+
+  Future<void> updateComment(String postId, String commentId,
+      String newComment) async {
+    // Firebase Authentication을 통해 현재 사용자의 ID를 가져옵니다.
+    final String currentUserID = FirebaseAuth.instance.currentUser!.uid;
+
+    // 댓글 수정에 앞서 해당 사용자가 댓글의 작성자인지 확인
+    // (이 코드가 Firebase에서 가져온 사용자 ID와 댓글의 작성자 ID를 비교하는 것으로 바꿔야 합니다)
+    if (currentUserID == '댓글의작성자의ID') {
+      try {
+        await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(postId)
+            .collection('comments')
+            .doc(commentId)
+            .update({
+          'text': newComment,
+        });
+      } catch (e) {
+        print('댓글을 수정하는 중 오류 발생: $e');
+        // 에러 처리 로직
+      }
+    } else {
+      print('작성자만 댓글을 수정할 수 있습니다.');
+      // 사용자에게 권한이 없음을 알리는 로직
+    }
   }
 
   @override
@@ -97,13 +173,6 @@ class PostDetail extends StatelessWidget {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Implement video upload functionality
-              },
-              child: Text('동영상 업로드'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
                 showDialog(
                   context: context,
                   builder: (BuildContext context) {
@@ -124,7 +193,7 @@ class PostDetail extends StatelessWidget {
                           child: Text('수정'),
                           onPressed: () async {
                             if (_commentController.text.isNotEmpty) {
-                              _updatePost(post.id, _commentController.text);
+                              updatePost(post.id, _commentController.text);
                               Navigator.of(context).pop();
                             }
                           },
@@ -139,7 +208,8 @@ class PostDetail extends StatelessWidget {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                _deletePost(post.id);
+
+                deletePost(post.id, commentId!);
                 Navigator.of(context).pop(); // Close the screen after deletion
               },
               child: Text('게시물 삭제'),
@@ -151,8 +221,10 @@ class PostDetail extends StatelessWidget {
             ),
             SizedBox(height: 10),
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('posts').doc(post.id).collection('comments').snapshots(),
-              builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+              stream: FirebaseFirestore.instance.collection('posts').doc(
+                  post.id).collection('comments').snapshots(),
+              builder: (BuildContext context,
+                  AsyncSnapshot<QuerySnapshot> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return CircularProgressIndicator();
                 } else if (snapshot.hasError) {
@@ -160,15 +232,19 @@ class PostDetail extends StatelessWidget {
                 } else {
                   if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                     return Column(
-                      children: snapshot.data!.docs.map((DocumentSnapshot document) {
-                        Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+                      children: snapshot.data!.docs.map((
+                          DocumentSnapshot document) {
+                        Map<String, dynamic> data = document.data() as Map<
+                            String,
+                            dynamic>;
                         String commentId = document.id;
 
                         return Card(
                           margin: EdgeInsets.symmetric(vertical: 5),
                           child: ListTile(
                             title: Text(data['text']),
-                            subtitle: data['imageURL'] != null ? Image.network(data['imageURL']) : null,
+                            subtitle: data['imageURL'] != null ? Image.network(
+                                data['imageURL']) : null,
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -182,11 +258,13 @@ class PostDetail extends StatelessWidget {
                                         return AlertDialog(
                                           title: Text('댓글 수정'),
                                           content: TextField(
-                                            controller: TextEditingController(text: updatedComment),
+                                            controller: TextEditingController(
+                                                text: updatedComment),
                                             onChanged: (value) {
                                               updatedComment = value;
                                             },
-                                            decoration: InputDecoration(hintText: '수정된 댓글을 입력하세요'),
+                                            decoration: InputDecoration(
+                                                hintText: '수정된 댓글을 입력하세요'),
                                           ),
                                           actions: <Widget>[
                                             TextButton(
@@ -199,7 +277,8 @@ class PostDetail extends StatelessWidget {
                                               child: Text('수정'),
                                               onPressed: () async {
                                                 if (updatedComment.isNotEmpty) {
-                                                  _updateComment(commentId, updatedComment);
+                                                  updateComment(
+                                                    commentId, updatedComment,newContent!);
                                                   Navigator.of(context).pop();
                                                 }
                                               },
@@ -213,7 +292,7 @@ class PostDetail extends StatelessWidget {
                                 IconButton(
                                   icon: Icon(Icons.delete),
                                   onPressed: () {
-                                    _deleteComment(commentId);
+                                    deleteComment(commentId , post as String);
                                   },
                                 ),
                               ],
@@ -247,7 +326,8 @@ class PostDetail extends StatelessWidget {
                             onPressed: () async {
                               String imageUrl = await _uploadImage();
                               if (_commentController.text.isNotEmpty) {
-                                await _addComment(post.id, _commentController.text, imageUrl);
+                                await _addComment(
+                                    post.id, _commentController.text, imageUrl);
                                 _commentController.clear();
                                 Navigator.of(context).pop();
                               }
@@ -268,3 +348,4 @@ class PostDetail extends StatelessWidget {
     );
   }
 }
+
